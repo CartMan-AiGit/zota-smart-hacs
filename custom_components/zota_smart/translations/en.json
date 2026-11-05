@@ -1,0 +1,74 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "ZOTA Smart",
+        "description": "Set up the connection to a ZOTA PO Smart v2 boiler.",
+        "data": {
+          "name": "Name",
+          "port": "Port",
+          "proxy": "PROXY mode",
+          "cloud_address": "Cloud address",
+          "psk": "Module PSK (hex)",
+          "power_kw": "Boiler power, kW",
+          "serial": "Module serial number",
+          "device_password": "Device password"
+        },
+        "data_description": {
+          "name": "Name of the boiler in Home Assistant.",
+          "port": "TCP port of the boiler LAN module (TLS-PSK).",
+          "proxy": "Enabled — reach the official ZOTA cloud through a bridge.",
+          "cloud_address": "ZOTA cloud address in host:port format.",
+          "psk": "Module TLS-PSK key: 64 hex characters (32 bytes).",
+          "power_kw": "Boiler power: 3–30 kW in steps of 3. Defines power presets (P/3, 2P/3, P).",
+          "serial": "Optional: module serial number (for future use).",
+          "device_password": "Optional: device password (for future use)."
+        }
+      }
+    },
+    "error": {
+      "invalid_port": "Port must be between 1 and 65535.",
+      "invalid_cloud_address": "Please provide a cloud address in host:port format.",
+      "invalid_psk": "PSK must be 64 hex characters (32 bytes).",
+      "invalid_power_kw": "Power must be between 3 and 30 kW.",
+      "invalid_power_kw_step": "Power must be a multiple of 3 kW (Smart family)."
+    },
+    "abort": {
+      "already_configured": "A boiler with this name is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "ZOTA Smart — options",
+        "data": {
+          "name": "Name",
+          "port": "Port",
+          "proxy": "PROXY mode",
+          "cloud_address": "Cloud address",
+          "psk": "Module PSK (hex)",
+          "power_kw": "Boiler power, kW",
+          "serial": "Module serial number",
+          "device_password": "Device password"
+        },
+        "data_description": {
+          "name": "Name of the boiler in Home Assistant.",
+          "port": "TCP port of the boiler LAN module (TLS-PSK).",
+          "proxy": "Enabled — reach the official ZOTA cloud through a bridge.",
+          "cloud_address": "ZOTA cloud address in host:port format.",
+          "psk": "Module TLS-PSK key: 64 hex characters (32 bytes).",
+          "power_kw": "Boiler power: 3–30 kW in steps of 3. Defines power presets (P/3, 2P/3, P).",
+          "serial": "Optional: module serial number (for future use).",
+          "device_password": "Optional: device password (for future use)."
+        }
+      }
+    },
+    "error": {
+      "invalid_port": "Port must be between 1 and 65535.",
+      "invalid_cloud_address": "Please provide a cloud address in host:port format.",
+      "invalid_psk": "PSK must be 64 hex characters (32 bytes).",
+      "invalid_power_kw": "Power must be between 3 and 30 kW.",
+      "invalid_power_kw_step": "Power must be a multiple of 3 kW (Smart family)."
+    }
+  }
+}
