@@ -8,8 +8,6 @@
 
 from __future__ import annotations
 
-import asyncio
-
 from homeassistant.components.number import (
     NumberDeviceClass,
     NumberEntity,
@@ -56,7 +54,7 @@ async def async_setup_entry(
 VALVE_NUMBERS: tuple[NumberEntityDescription, ...] = (
     NumberEntityDescription(
         key="valve_target",
-        name="Клапан: целевая температура",
+        translation_key="valve_target",
         device_class=NumberDeviceClass.TEMPERATURE,
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         native_min_value=VALVE_TARGET_MIN,
@@ -66,7 +64,7 @@ VALVE_NUMBERS: tuple[NumberEntityDescription, ...] = (
     ),
     NumberEntityDescription(
         key="valve_on_time",
-        name="Клапан: включение",
+        translation_key="valve_on_time",
         native_unit_of_measurement=UnitOfTime.SECONDS,
         native_min_value=VALVE_ON_TIME_MIN,
         native_max_value=VALVE_ON_TIME_MAX,
@@ -75,7 +73,7 @@ VALVE_NUMBERS: tuple[NumberEntityDescription, ...] = (
     ),
     NumberEntityDescription(
         key="valve_period",
-        name="Клапан: периодичность",
+        translation_key="valve_period",
         native_unit_of_measurement=UnitOfTime.SECONDS,
         native_min_value=VALVE_PERIOD_MIN,
         native_max_value=VALVE_PERIOD_MAX,
@@ -84,7 +82,7 @@ VALVE_NUMBERS: tuple[NumberEntityDescription, ...] = (
     ),
     NumberEntityDescription(
         key="valve_full_open",
-        name="Клапан: полное открытие",
+        translation_key="valve_full_open",
         native_unit_of_measurement=UnitOfTime.SECONDS,
         native_min_value=VALVE_FULL_OPEN_MIN,
         native_max_value=VALVE_FULL_OPEN_MAX,
@@ -139,15 +137,15 @@ class ZotaValveNumber(ZotaEntity, NumberEntity):
         """
         field = self.entity_description.key.removeprefix("valve_")
         try:
-            result = await asyncio.wrap_future(
-                self.coordinator.send_valve_config(**{field: int(value)})
+            result = await self.coordinator.async_send_valve_config(
+                **{field: int(value)}
             )
         except Exception as err:
             raise HomeAssistantError("котёл не подтвердил команду: %s" % err) from err
         if result != 0:
             raise HomeAssistantError("котёл не подтвердил команду")
         # Ускоренный опрос: обновлённое состояние нужно как можно скорее.
-        self.coordinator.poll_now()
+        await self.coordinator.async_poll_now()
 
 
 __all__ = [

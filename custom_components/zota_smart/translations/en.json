@@ -12,7 +12,8 @@
           "psk": "Module PSK (hex)",
           "power_kw": "Boiler power, kW",
           "serial": "Module serial number",
-          "device_password": "Device password"
+          "device_password": "Device password",
+          "frame_log": "Log frames (debug)"
         },
         "data_description": {
           "name": "Name of the boiler in Home Assistant.",
@@ -22,7 +23,8 @@
           "psk": "Module TLS-PSK key: 64 hex characters (32 bytes).",
           "power_kw": "Boiler power: 3–30 kW in steps of 3. Defines power presets (P/3, 2P/3, P).",
           "serial": "Optional: module serial number (for future use).",
-          "device_password": "Optional: device password (for future use)."
+          "device_password": "Optional: device password (for future use).",
+          "frame_log": "Write all frames to /config/zota_frames.log. Off by default: the log grows continuously (20 MB rotation)."
         }
       }
     },
@@ -49,7 +51,8 @@
           "psk": "Module PSK (hex)",
           "power_kw": "Boiler power, kW",
           "serial": "Module serial number",
-          "device_password": "Device password"
+          "device_password": "Device password",
+          "frame_log": "Log frames (debug)"
         },
         "data_description": {
           "name": "Name of the boiler in Home Assistant.",
@@ -59,7 +62,8 @@
           "psk": "Module TLS-PSK key: 64 hex characters (32 bytes).",
           "power_kw": "Boiler power: 3–30 kW in steps of 3. Defines power presets (P/3, 2P/3, P).",
           "serial": "Optional: module serial number (for future use).",
-          "device_password": "Optional: device password (for future use)."
+          "device_password": "Optional: device password (for future use).",
+          "frame_log": "Write all frames to /config/zota_frames.log. Off by default: the log grows continuously (20 MB rotation)."
         }
       }
     },
@@ -69,6 +73,83 @@
       "invalid_psk": "PSK must be 64 hex characters (32 bytes).",
       "invalid_power_kw": "Power must be between 3 and 30 kW.",
       "invalid_power_kw_step": "Power must be a multiple of 3 kW (Smart family)."
+    }
+  },
+  "entity": {
+    "climate": {
+      "boiler": {
+        "name": "Boiler"
+      }
+    },
+    "switch": {
+      "pump1": {
+        "name": "Pump 1"
+      },
+      "pump2": {
+        "name": "Pump 2"
+      }
+    },
+    "binary_sensor": {
+      "heating": {
+        "name": "Heating"
+      },
+      "pump1": {
+        "name": "Pump 1"
+      },
+      "pump2": {
+        "name": "Pump 2"
+      }
+    },
+    "select": {
+      "valve_mode": {
+        "name": "Valve: mode"
+      }
+    },
+    "number": {
+      "valve_target": {
+        "name": "Valve: target temperature"
+      },
+      "valve_on_time": {
+        "name": "Valve: on time"
+      },
+      "valve_period": {
+        "name": "Valve: period"
+      },
+      "valve_full_open": {
+        "name": "Valve: full open"
+      }
+    },
+    "sensor": {
+      "temp_supply": {
+        "name": "Sensor 3: water (supply)"
+      },
+      "temp_return": {
+        "name": "Built-in sensor (flask)"
+      },
+      "setpoint": {
+        "name": "Setpoint"
+      },
+      "sensor_room": {
+        "name": "Sensor 1: room"
+      },
+      "sensor_outside": {
+        "name": "Sensor 2: outside"
+      },
+      "sensor_air": {
+        "name": "Sensor 4: air"
+      },
+      "stage": {
+        "name": "Stage"
+      },
+      "power_active_kw": {
+        "name": "Power: current"
+      },
+      "power_kw": {
+        "name": "Power: target"
+      },
+      "errors": {
+        "name": "Errors"
+      }
     }
   }
 }

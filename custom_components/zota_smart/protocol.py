@@ -20,6 +20,7 @@
 from __future__ import annotations
 
 import errno
+import os
 import struct
 from dataclasses import dataclass
 
@@ -140,12 +141,48 @@ class FrameBuffer:
 #: Путь файла пассивного захвата кадров (в HA-контейнере /config — корень конфига).
 FRAME_LOG_PATH = "/config/zota_frames.log"
 
+#: Порог ротации файла захвата: при превышении текущий файл переименовывается
+#: в ``.old`` (перезапись), и запись начинается заново.
+FRAME_LOG_MAX_BYTES = 20 * 1024 * 1024
+
+#: Включён ли захват кадров (опция интеграции ``frame_log``, по умолчанию выкл).
+_FRAME_LOG_ENABLED = False
+
+
+def set_frame_logging(enabled: bool) -> None:
+    """Включить/выключить запись кадров в файл захвата.
+
+    Флаг глобальный: транспорт и мост используют один и тот же модуль
+    ``protocol``, а котёл в конфигурации HA один.
+    """
+    global _FRAME_LOG_ENABLED
+    _FRAME_LOG_ENABLED = bool(enabled)
+
+
+def _rotate_frame_log_if_needed() -> None:
+    """Переименовать разросшийся лог захвата в ``.old`` (перезапись)."""
+    try:
+        if os.path.exists(FRAME_LOG_PATH) and (
+            os.path.getsize(FRAME_LOG_PATH) > FRAME_LOG_MAX_BYTES
+        ):
+            os.replace(FRAME_LOG_PATH, FRAME_LOG_PATH + ".old")
+    except OSError:
+        pass
+
 
 def log_frame(tag: str, data: bytes) -> None:
-    """Пассивно дописать кадр в файл захвата. Никогда не бросает исключений."""
+    """Пассивно дописать кадр в файл захвата. Никогда не бросает исключений.
+
+    Пишет только когда захват включён (:func:`set_frame_logging`) — вызовы
+    идут из потоков транспорта и не должны что-либо ломать при выключенной
+    опции.
+    """
+    if not _FRAME_LOG_ENABLED:
+        return
     try:
         from datetime import datetime
 
+        _rotate_frame_log_if_needed()
         with open(FRAME_LOG_PATH, "a", encoding="utf-8") as fh:
             fh.write(
                 "%s %s len=%d %s\n"
@@ -207,33 +244,6 @@ def is_idle_error(err: BaseException) -> bool:
     return False
 
 
-def parse_info(payload: bytes) -> dict[str, int]:
-    """Разобрать info-блок cmd=0 (53 байта данных) в именованные поля.
-
-    Поля и их смещения — §11.8. Значения известны неполно: маска статуса/ошибок
-    [46] и часть температур пока не расшифрованы, поэтому power_raw публикуется
-    как есть.
-
-    .. note::
-       Раскладка ступеней — по живой валидации 2026-11-05 (веб ZOTA):
-       ``[3]`` — текущая (активная) ступень, ``[4]`` — установленная
-       (уставка-ограничитель).
-    """
-    # ACK-заголовок: cmd_echo, result.
-    data = payload[4:]
-    if len(data) < 47:
-        raise ValueError(f"info payload too short: {len(data)} bytes")
-    return {
-        "stage_active": data[3],
-        "stage_selected": data[4],
-        "setpoint": data[5],
-        "temp_return": data[15],
-        "temp_supply": data[21],
-        "power_raw": data[37],
-        "status": data[46],
-    }
-
-
 __all__ = [
     "Frame",
     "FrameBuffer",
@@ -251,7 +261,7 @@ __all__ = [
     "build_write",
     "is_idle_error",
     "log_frame",
+    "set_frame_logging",
     "parse_ack",
     "parse_frame",
-    "parse_info",
 ]

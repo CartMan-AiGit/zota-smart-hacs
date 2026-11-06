@@ -662,12 +662,12 @@ def case_psk_client_callback() -> None:
 def case_binary_sensor_names() -> None:
     """Набор бинарных сенсоров: только нагрев и насосы, без реле ТЭН."""
     print("--- case 11: состав бинарных сенсоров ---")
-    names = {d.key: d.name for d in BINARY_SENSOR_DESCRIPTIONS}
+    names = {d.key: d.translation_key for d in BINARY_SENSOR_DESCRIPTIONS}
     for key in sorted(names):
         print(f"  {key} = {names[key]!r}")
-    check(names["heating"] == "Нагрев", f"heating: получено {names['heating']!r}")
-    check(names["pump1"] == "Насос 1", f"pump1: получено {names['pump1']!r}")
-    check(names["pump2"] == "Насос 2", f"pump2: получено {names['pump2']!r}")
+    check(names["heating"] == "heating", f"heating: получено {names['heating']!r}")
+    check(names["pump1"] == "pump1", f"pump1: получено {names['pump1']!r}")
+    check(names["pump2"] == "pump2", f"pump2: получено {names['pump2']!r}")
     check(
         set(names) == {"heating", "pump1", "pump2"},
         f"ожидались только heating/pump1/pump2, получено {sorted(names)}",

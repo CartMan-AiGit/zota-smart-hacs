@@ -25,6 +25,7 @@ from homeassistant.helpers.selector import (
 from .const import (
     CONF_CLOUD_ADDRESS,
     CONF_DEVICE_PASSWORD,
+    CONF_FRAME_LOG,
     CONF_NAME,
     CONF_PORT,
     CONF_POWER_KW,
@@ -33,6 +34,7 @@ from .const import (
     CONF_SERIAL,
     CONF_TEMP_SENSOR,
     DEFAULT_CLOUD_ADDRESS,
+    DEFAULT_FRAME_LOG,
     DEFAULT_NAME,
     DEFAULT_PORT,
     DEFAULT_POWER_KW,
@@ -131,6 +133,9 @@ def _schema(current: dict[str, Any]) -> vol.Schema:
             ),
             vol.Optional(CONF_SERIAL, description="серийник модуля"): int,
             vol.Optional(CONF_DEVICE_PASSWORD): str,
+            vol.Required(
+                CONF_FRAME_LOG, default=current.get(CONF_FRAME_LOG, DEFAULT_FRAME_LOG)
+            ): bool,
         }
     )
 

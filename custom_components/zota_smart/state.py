@@ -97,11 +97,10 @@ PUMP1_ON = 1
 #: Значение `[29]` — насос 1 выключен.
 PUMP1_OFF = 2
 
-#: Ступени мощности: ступень × 5 = кВт.
+#: Ступени мощности по умолчанию: ступень × 5 = кВт (котёл 15 кВт).
+#: Фактическая мощность ступени задаётся конфигурацией записи
+#: (``kw_per_stage = power_kw // 3``).
 KW_PER_STAGE = 5
-
-#: Названия ступеней по индексу выбранной ступени.
-STAGE_NAMES = ("Выкл", "5 кВт", "10 кВт", "15 кВт")
 
 
 @dataclass(frozen=True)
@@ -157,6 +156,9 @@ class ZotaState:
     valve_period: int = 0
     #: Клапан: полное открытие, с — u16 LE ``[46..47]``.
     valve_full_open: int = 0
+    #: Мощность одной ступени, кВт (``power_kw // 3`` из конфигурации записи).
+    #: Дефолт 5 — поведение прежних записей котла 15 кВт не меняется.
+    kw_per_stage: int = KW_PER_STAGE
 
     @property
     def valve_target_active(self) -> int:
@@ -178,7 +180,7 @@ class ZotaState:
         регулирует мощность по температуре: фактически включённых ТЭНов
         может быть меньше, чем разрешено уставкой.
         """
-        return self.stage * KW_PER_STAGE
+        return self.stage * self.kw_per_stage
 
     @property
     def power_active_kw(self) -> int:
@@ -188,14 +190,14 @@ class ZotaState:
         включённых групп ТЭНов: при подходе к целевой температуре котёл
         снижает её 15 → 10 → 5 → 0, даже если уставка разрешает больше.
         """
-        return self.active_stage * KW_PER_STAGE
+        return self.active_stage * self.kw_per_stage
 
     @property
     def stage_name(self) -> str:
-        """Название ступени: «Выкл» / «5 кВт» / «10 кВт» / «15 кВт»."""
-        if 0 <= self.stage < len(STAGE_NAMES):
-            return STAGE_NAMES[self.stage]
-        return STAGE_NAMES[0]
+        """Название ступени: «Выкл» / «5 кВт» / … — по мощности ступени."""
+        if self.stage <= 0:
+            return "Выкл"
+        return "%d кВт" % (self.stage * self.kw_per_stage)
 
     @property
     def has_errors(self) -> bool:
@@ -227,7 +229,7 @@ def _bit(mask: int, bit: int) -> bool:
     return bool(mask & bit)
 
 
-def state_from_info(blob53: bytes) -> ZotaState:
+def state_from_info(blob53: bytes, kw_per_stage: int = KW_PER_STAGE) -> ZotaState:
     """Разобрать info-блок cmd=0 (53 байта данных) в :class:`ZotaState`.
 
     Аргумент — именно блоб данных без 4-байтового заголовка ACK
@@ -295,6 +297,7 @@ def state_from_info(blob53: bytes) -> ZotaState:
 
     return ZotaState(
         stage=stage,
+        kw_per_stage=kw_per_stage,
         sensor_room=_slot(OFF_SENSOR_ROOM),
         sensor_outside=_slot(OFF_SENSOR_OUTSIDE),
         sensor_air=_slot(OFF_SENSOR_AIR),
@@ -354,7 +357,6 @@ __all__ = [
     "PUMP1_OFF",
     "PUMP1_ON",
     "SENSOR_ABSENT",
-    "STAGE_NAMES",
     "ZotaState",
     "state_from_info",
 ]

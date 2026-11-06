@@ -10,8 +10,6 @@
 
 from __future__ import annotations
 
-import asyncio
-
 from homeassistant.components.select import SelectEntity, SelectEntityDescription
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -48,7 +46,7 @@ async def async_setup_entry(
 
 VALVE_MODE_DESCRIPTION = SelectEntityDescription(
     key="valve_mode",
-    name="Клапан: режим",
+    translation_key="valve_mode",
     icon="mdi:tune-vertical",
 )
 
@@ -84,15 +82,13 @@ class ZotaValveModeSelect(ZotaEntity, SelectEntity):
         else:
             raise HomeAssistantError("неизвестный режим клапана: %s" % option)
         try:
-            result = await asyncio.wrap_future(
-                self.coordinator.send_valve_config(mode=mode)
-            )
+            result = await self.coordinator.async_send_valve_config(mode=mode)
         except Exception as err:
             raise HomeAssistantError("котёл не подтвердил команду: %s" % err) from err
         if result != 0:
             raise HomeAssistantError("котёл не подтвердил команду")
         # Ускоренный опрос: обновлённое состояние нужно как можно скорее.
-        self.coordinator.poll_now()
+        await self.coordinator.async_poll_now()
 
 
 __all__ = [

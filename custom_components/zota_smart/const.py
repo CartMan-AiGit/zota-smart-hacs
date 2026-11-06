@@ -167,33 +167,9 @@ PUMP2_PAYLOAD_ON: Final = bytes.fromhex("0b0000000000")
 #: Доказано 2026-11-04: TX frame(1,0, 0b0001000000) → ACK cmd_echo=0x0B.
 PUMP2_PAYLOAD_OFF: Final = bytes.fromhex("0b0001000000")
 
-#: Смещения полей в info-блоке cmd=0 (§11.8).
-#:
-#: Живая валидация 2026-11-05 (веб ZOTA): ``[3]`` — **текущая** (активная)
-#: ступень, ``[4]`` — **установленная** (уставка-ограничитель). Статическая
-#: дока была обратной — см. PROTOCOL.md §11.8.
-INFO_OFFSET_STAGE_ACTIVE: Final = 3
-INFO_OFFSET_STAGE_SELECTED: Final = 4
-INFO_OFFSET_SETPOINT: Final = 5
-INFO_OFFSET_TEMP_RETURN: Final = 15
-INFO_OFFSET_TEMP_SUPPLY: Final = 21
-#: Внешние датчики температуры — u16 LE (§11.8, живая карта 2026-11-06):
-#: ``[17..18]`` клемма «помещение», ``[19..20]`` клемма «улица»,
-#: ``[23..24]`` клемма «воздух». Слот ``[21..22]`` (погружной «вода» в
-#: подаче) уже публикуется сенсором «Датчик 3: вода (подача)». Клеммы 5/6
-#: (ГВС/ГР) слота
-#: в info-блоке нет.
-INFO_OFFSET_SENSOR_ROOM: Final = 17
-INFO_OFFSET_SENSOR_OUTSIDE: Final = 19
-INFO_OFFSET_SENSOR_AIR: Final = 23
-#: Маркер «датчик не подключён» в слоте внешнего датчика (u16 LE 0x4001).
-SENSOR_ABSENT: Final = 0x4001
-INFO_OFFSET_POWER_RAW: Final = 37
-INFO_OFFSET_STATUS: Final = 46
-#: Полный размер info-блока (53 байта данных + 4 байта заголовка ACK).
-INFO_PAYLOAD_SIZE: Final = 57
-#: Размер блока паспорта (7 байт данных + 4 байта заголовка ACK).
-PASSPORT_PAYLOAD_SIZE: Final = 11
+#: Карта полей info-блока cmd=0 (смещения, живая валидация) — канонический
+#: источник: docstring модуля :mod:`.state` (§11.8). Констант-дублеров нет
+#: намеренно: один источник истины.
 
 # --- Коды результата ACK (§11.3) ------------------------------------------
 
@@ -222,9 +198,15 @@ CONF_PROXY: Final = "proxy"
 CONF_CLOUD_ADDRESS: Final = "cloud_address"
 CONF_PSK: Final = "psk"
 CONF_POWER_KW: Final = "power_kw"
+#: Зарезервировано для будущего использования (серийник из паспорта cmd=16);
+#: осознанно сохранено, удалению не подлежит.
 CONF_SERIAL: Final = "serial"
+#: Зарезервировано для будущего использования; осознанно сохранено.
 CONF_DEVICE_PASSWORD: Final = "device_password"
 CONF_TEMP_SENSOR: Final = "temp_sensor"
+#: Запись кадров в /config/zota_frames.log (отладка). По умолчанию выкл:
+#: лог растёт непрерывно, ротация — 20 МБ (→ .old, перезапись).
+CONF_FRAME_LOG: Final = "frame_log"
 
 # --- Источник текущей температуры climate-сущности --------------------------
 
@@ -239,6 +221,9 @@ TEMP_SENSOR_ROOM: Final = "room"
 TEMP_SENSOR_OUTSIDE: Final = "outside"
 #: Дефолт при отсутствии поля в entry — подача (поведение не меняется).
 DEFAULT_TEMP_SENSOR: Final = TEMP_SENSOR_SUPPLY
+
+#: Запись кадров по умолчанию выключена (существующие записи не логируют).
+DEFAULT_FRAME_LOG: Final = False
 
 
 def mask_psk(psk: str) -> str:

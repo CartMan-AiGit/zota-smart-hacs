@@ -65,9 +65,11 @@ class EntityDescription:
     """Минимальная замена EntityDescription."""
 
     def __init__(self, key, name=None, device_class=None, state_class=None,
-                 native_unit_of_measurement=None, icon=None):
+                 native_unit_of_measurement=None, icon=None,
+                 translation_key=None):
         self.key = key
         self.name = name
+        self.translation_key = translation_key
         self.device_class = device_class
         self.state_class = state_class
         self.native_unit_of_measurement = native_unit_of_measurement
@@ -338,13 +340,15 @@ class NumberEntityDescription(EntityDescription):
 
     def __init__(self, key, name=None, device_class=None,
                  native_unit_of_measurement=None, icon=None,
-                 native_min_value=None, native_max_value=None, native_step=None):
+                 native_min_value=None, native_max_value=None, native_step=None,
+                 translation_key=None):
         super().__init__(
             key,
             name=name,
             device_class=device_class,
             native_unit_of_measurement=native_unit_of_measurement,
             icon=icon,
+            translation_key=translation_key,
         )
         self.native_min_value = native_min_value
         self.native_max_value = native_max_value

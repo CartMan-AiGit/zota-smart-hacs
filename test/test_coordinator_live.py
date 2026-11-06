@@ -67,6 +67,10 @@ class _FakeLoop:
         func(*args)
         return None
 
+    def run_in_executor(self, executor, func, *args):
+        """Fire-and-forget отправка из _poll_tick: в заглушке — сразу."""
+        return func(*args)
+
     def call_later(self, delay, func, *args):
         handle = _Timer(delay, func, args)
         self._timers.append(handle)

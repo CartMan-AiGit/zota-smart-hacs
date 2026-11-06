@@ -28,8 +28,6 @@
 
 from __future__ import annotations
 
-import asyncio
-
 from homeassistant.components.switch import SwitchEntity, SwitchEntityDescription
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -67,13 +65,13 @@ async def async_setup_entry(
 
 PUMP1_DESCRIPTION = SwitchEntityDescription(
     key="pump1",
-    name="Насос 1",
+    translation_key="pump1",
     icon="mdi:pump",
 )
 
 PUMP2_DESCRIPTION = SwitchEntityDescription(
     key="pump2",
-    name="Насос 2",
+    translation_key="pump2",
     icon="mdi:pump",
 )
 
@@ -122,15 +120,13 @@ class ZotaPump1Switch(ZotaEntity, SwitchEntity):
         """
         value = mode | (PUMP1_TIMEOUT_MIN << 8)
         try:
-            result = await asyncio.wrap_future(
-                self.coordinator.send_write(CMD_PUMP1, value)
-            )
+            result = await self.coordinator.async_send_write(CMD_PUMP1, value)
         except Exception as err:
             raise HomeAssistantError("котёл не подтвердил команду: %s" % err) from err
         if result != 0:
             raise HomeAssistantError("котёл не подтвердил команду")
         # Ускоренный опрос: обновлённое состояние нужно как можно скорее.
-        self.coordinator.poll_now()
+        await self.coordinator.async_poll_now()
 
 
 class ZotaPump2Switch(ZotaEntity, SwitchEntity):
@@ -174,15 +170,13 @@ class ZotaPump2Switch(ZotaEntity, SwitchEntity):
     async def _write(self, payload: bytes) -> None:
         """Отправить payload записи и дождаться подтверждения котла."""
         try:
-            result = await asyncio.wrap_future(
-                self.coordinator.send_raw(payload)
-            )
+            result = await self.coordinator.async_send_raw(payload)
         except Exception as err:
             raise HomeAssistantError("котёл не подтвердил команду: %s" % err) from err
         if result != 0:
             raise HomeAssistantError("котёл не подтвердил команду")
         # Ускоренный опрос: обновлённое состояние нужно как можно скорее.
-        self.coordinator.poll_now()
+        await self.coordinator.async_poll_now()
 
 
 __all__ = [

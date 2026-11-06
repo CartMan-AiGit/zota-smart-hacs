@@ -16,7 +16,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from typing import Any
 
 from homeassistant.components.climate import (
@@ -58,7 +57,7 @@ async def async_setup_entry(
 
 CLIMATE_DESCRIPTION = ClimateEntityDescription(
     key="climate",
-    name="Котёл",
+    translation_key="boiler",
 )
 
 
@@ -182,7 +181,7 @@ class ZotaClimate(ZotaEntity, ClimateEntity):
     async def _write(self, cmd: int, value: int) -> None:
         """Отправить запись и дождаться подтверждения котла."""
         try:
-            result = await asyncio.wrap_future(self.coordinator.send_write(cmd, value))
+            result = await self.coordinator.async_send_write(cmd, value)
         except Exception as err:
             raise HomeAssistantError("котёл не подтвердил команду: %s" % err) from err
         if result != 0:
@@ -190,7 +189,7 @@ class ZotaClimate(ZotaEntity, ClimateEntity):
         if cmd == CMD_STAGE and value > 0:
             self._last_stage = value
         # Ускоренный опрос: обновлённое состояние нужно как можно скорее.
-        self.coordinator.poll_now()
+        await self.coordinator.async_poll_now()
 
 
 __all__ = ["CLIMATE_DESCRIPTION", "ZotaClimate", "async_setup_entry"]

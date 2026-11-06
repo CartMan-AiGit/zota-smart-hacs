@@ -49,6 +49,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from .const import (
     CMD_INFO,
     CONF_CLOUD_ADDRESS,
+    CONF_FRAME_LOG,
     CONF_NAME,
     CONF_PORT,
     CONF_POWER_KW,
@@ -56,6 +57,7 @@ from .const import (
     CONF_PSK,
     CONF_TEMP_SENSOR,
     DEFAULT_CLOUD_ADDRESS,
+    DEFAULT_FRAME_LOG,
     DEFAULT_NAME,
     DEFAULT_PORT,
     DEFAULT_POWER_KW,
@@ -89,7 +91,7 @@ from .const import (
     VALVE_TARGET_MAX,
     VALVE_TARGET_MIN,
 )
-from .protocol import build_read, build_write, parse_ack
+from .protocol import build_read, build_write, parse_ack, set_frame_logging
 from .proxy import ZotaCloudBridge
 from .state import ZotaState, state_from_info
 from .tls_server import TLSServerTransport
@@ -166,6 +168,12 @@ class ZotaCoordinator(DataUpdateCoordinator[ZotaState]):
         self.psk_hex: str = conf.get(CONF_PSK) or DEFAULT_PSK
         #: Мощность котла, кВт — определяет пресеты климат-сущности.
         self.power_kw: int = conf.get(CONF_POWER_KW, DEFAULT_POWER_KW)
+        #: Мощность одной ступени, кВт: 3 ступени (0…3). Для 15 кВт — 5,
+        #: поведение прежних записей не меняется.
+        self.kw_per_stage: int = max(1, self.power_kw // 3)
+        #: Запись кадров в /config/zota_frames.log (отладка, default False).
+        self.frame_log: bool = bool(conf.get(CONF_FRAME_LOG, DEFAULT_FRAME_LOG))
+        set_frame_logging(self.frame_log)
         #: Источник текущей температуры climate-сущности (supply/return/room/
         #: outside). Дефолт supply — поведение существующих записей не меняется.
         self.temp_sensor: str = conf.get(CONF_TEMP_SENSOR, DEFAULT_TEMP_SENSOR)
@@ -175,6 +183,15 @@ class ZotaCoordinator(DataUpdateCoordinator[ZotaState]):
         self._serial: int | None = None
         self._connected = False
         self._pending: dict[int, concurrent.futures.Future[int]] = {}
+        #: Доступ к ``_pending`` из двух потоков (event loop регистрирует
+        #: ожидание, поток транспорта резолвит по ACK) — под локом.
+        self._pending_lock = threading.Lock()
+        #: Сериализация записей «отправка + ожидание ACK»: без неё вторая
+        #: быстрая команда с тем же cmd перезаписывает pending future первой
+        #: и её await висит до таймаута. Future создаётся и таймаут
+        #: планируется под локом — таймаут второй команды стартует с её
+        #: отправки, а не копится с первой.
+        self._write_serial = asyncio.Lock()
         self._poll_timer: asyncio.TimerHandle | None = None
         self._unsub_writes: list[Callable[[], None]] = []
         #: Сырые байты последнего кадра регистрации модуля (link=2 op=2).
@@ -311,9 +328,70 @@ class ZotaCoordinator(DataUpdateCoordinator[ZotaState]):
         Вызывать из event loop; фактическая отправка идёт из потока
         транспорта, а разбор ответа — тоже оттуда, поэтому резолвится
         Future потокобезопасно.
+
+        Предпочтительный путь для сущностей — :meth:`async_send_write`:
+        он сериализует записи и не блокирует event loop.
         """
         payload = build_write(cmd, val)[HEADER_SIZE:]
         return self._send_and_wait(cmd, payload)
+
+    async def async_send_write(self, cmd: int, val: int) -> int:
+        """Сериализованная запись ``cmd=val`` с ожиданием ACK (event loop).
+
+        Цикл «отправка + ожидание ACK» идёт под ``_write_serial``: вторая
+        команда ждёт завершения первой, pending future не перезаписывается.
+        Отправка выполняется в executor — ретраи записи не блокируют
+        event loop. Возвращает ``result`` ACK или бросает исключение
+        (таймаут/нет связи; NAK-обёртки делает вызывающая сущность).
+        """
+        payload = build_write(cmd, val)[HEADER_SIZE:]
+        return await self._async_send_and_wait(cmd, payload)
+
+    async def async_send_raw(self, payload: bytes, timeout: float = WRITE_TIMEOUT) -> int:
+        """Сериализованная :meth:`send_raw` (см. :meth:`async_send_write`)."""
+        payload = bytes(payload)
+        if len(payload) < 2:
+            raise ValueError(
+                "payload слишком короткий: %d байт (нужно ≥ 2)" % len(payload)
+            )
+        cmd_echo = struct.unpack_from("<H", payload, 0)[0]
+        return await self._async_send_and_wait(cmd_echo, payload, timeout)
+
+    async def async_send_valve_config(self, **changes: int) -> int:
+        """Сериализованная :meth:`send_valve_config` (см. :meth:`async_send_write`)."""
+        payload = self._build_valve_payload(**changes)
+        return await self._async_send_and_wait(CMD_VALVE, payload)
+
+    async def _async_send_and_wait(
+        self, cmd_echo: int, payload: bytes, timeout: float = WRITE_TIMEOUT
+    ) -> int:
+        """Отправить payload под локом сериализации и дождаться ACK.
+
+        Future регистрируется до отправки (ACK не может прийти раньше
+        отправки), сама отправка — в executor, таймаут планируется после
+        успешной отправки — время ожидания каждой команды конечно и не
+        копится с предыдущих (``_expire_write`` сверяет идентичность
+        future, просроченный таймер чужой команды безвреден).
+        """
+        async with self._write_serial:
+            future: concurrent.futures.Future[int] = concurrent.futures.Future()
+            with self._pending_lock:
+                self._pending[cmd_echo] = future
+            if self._transport is None:
+                with self._pending_lock:
+                    self._pending.pop(cmd_echo, None)
+                raise RuntimeError("транспорт не запущен")
+            ok = await self.hass.async_add_executor_job(
+                self._transport.send_frame, LINK_FLAT, OPCODE_COMMAND, payload
+            )
+            if not ok:
+                with self._pending_lock:
+                    self._pending.pop(cmd_echo, None)
+                raise RuntimeError("модуль не подключён")
+            self._hass_timer(
+                timeout, self._expire_write, cmd_echo, future, timeout
+            )
+            return await asyncio.wrap_future(future)
 
     def send_raw(self, payload: bytes, timeout: float = WRITE_TIMEOUT) -> (
         concurrent.futures.Future[int]
@@ -351,16 +429,19 @@ class ZotaCoordinator(DataUpdateCoordinator[ZotaState]):
         (см. :meth:`_handle_ack`).
         """
         future: concurrent.futures.Future[int] = concurrent.futures.Future()
-        self._pending[cmd_echo] = future
+        with self._pending_lock:
+            self._pending[cmd_echo] = future
         if self._transport is None:
-            self._pending.pop(cmd_echo, None)
+            with self._pending_lock:
+                self._pending.pop(cmd_echo, None)
             future.set_exception(RuntimeError("транспорт не запущен"))
             return future
         ok = self._transport.send_frame(
             LINK_FLAT, OPCODE_COMMAND, payload
         )
         if not ok:
-            self._pending.pop(cmd_echo, None)
+            with self._pending_lock:
+                self._pending.pop(cmd_echo, None)
             future.set_exception(RuntimeError("модуль не подключён"))
             return future
         self._hass_timer(
@@ -375,9 +456,10 @@ class ZotaCoordinator(DataUpdateCoordinator[ZotaState]):
         timeout: float = WRITE_TIMEOUT,
     ) -> None:
         """Таймаут ожидания ACK на запись (event loop)."""
-        if self._pending.get(cmd) is not future:
-            return
-        self._pending.pop(cmd, None)
+        with self._pending_lock:
+            if self._pending.get(cmd) is not future:
+                return
+            self._pending.pop(cmd, None)
         if not future.done():
             future.set_exception(
                 TimeoutError(
@@ -401,14 +483,37 @@ class ZotaCoordinator(DataUpdateCoordinator[ZotaState]):
             LINK_FLAT, OPCODE_COMMAND, build_read(CMD_INFO)[HEADER_SIZE:]
         )
 
+    async def async_poll_now(self) -> bool:
+        """``poll_now`` без блокировки event loop: отправка в executor.
+
+        Сущности после успешной записи вызывают именно его — ретраи записи
+        не должны крутиться в event loop.
+        """
+        if self._transport is None or not self._transport.is_connected:
+            return False
+        return await self.hass.async_add_executor_job(
+            self._transport.send_frame,
+            LINK_FLAT,
+            OPCODE_COMMAND,
+            build_read(CMD_INFO)[HEADER_SIZE:],
+        )
+
     def send_valve_config(self, **changes: int) -> concurrent.futures.Future[int]:
         """Записать настройки клапана (cmd=0x0C) и вернуть Future с result ACK.
+
+        Семантика — см. :meth:`_build_valve_payload`. Сущностям предпочтителен
+        сериализованный :meth:`async_send_valve_config`.
+        """
+        return self._send_and_wait(CMD_VALVE, self._build_valve_payload(**changes))
+
+    def _build_valve_payload(self, **changes: int) -> bytes:
+        """Собрать и провалидировать write-payload настроек клапана (§11.13).
 
         Каждая запись — полный блок настроек одним кадром (§11.13.1):
         текущие значения берутся из последнего info-состояния, поля из
         ``changes`` подменяются. Допустимые ключи: ``mode``, ``target``,
         ``on_time``, ``period``, ``full_open``; значения валидируются по
-        диапазонам. После ACK вызывающая сущность делает ``poll_now()``.
+        диапазонам.
 
         Двойная целевая и защита Тёплого пола (§11.13.6): mode-байт задаёт
         контур И активирует его, отдельно менять целевую неактивного контура
@@ -460,7 +565,7 @@ class ZotaCoordinator(DataUpdateCoordinator[ZotaState]):
             fields["period"],
             fields["full_open"],
         )
-        return self._send_and_wait(CMD_VALVE, payload)
+        return payload
 
     def _hass_timer(
         self, delay: float, func: Callable[..., None], *args: Any
@@ -578,7 +683,9 @@ class ZotaCoordinator(DataUpdateCoordinator[ZotaState]):
             _LOGGER.warning("Некорректный ACK: %s", err)
             return
 
-        future = self._pending.pop(cmd_echo, None)
+        future: concurrent.futures.Future[int] | None
+        with self._pending_lock:
+            future = self._pending.pop(cmd_echo, None)
         if future is not None and not future.done():
             future.set_result(result)
 
@@ -592,7 +699,7 @@ class ZotaCoordinator(DataUpdateCoordinator[ZotaState]):
                 _LOGGER.warning("info-блок короткий: %d байт", len(data))
                 return
             try:
-                state = state_from_info(data)
+                state = state_from_info(data, self.kw_per_stage)
             except ValueError as err:
                 _LOGGER.warning("info-блок не разобран: %s", err)
                 return
@@ -629,10 +736,13 @@ class ZotaCoordinator(DataUpdateCoordinator[ZotaState]):
 
     def _fail_pending(self) -> None:
         """Завершить все ожидающие записи ошибкой."""
-        for future in list(self._pending.values()):
-            if not future.done():
-                future.set_exception(ConnectionError("соединение с модулем потеряно"))
-        self._pending.clear()
+        with self._pending_lock:
+            for future in list(self._pending.values()):
+                if not future.done():
+                    future.set_exception(
+                        ConnectionError("соединение с модулем потеряно")
+                    )
+            self._pending.clear()
 
     def _call_soon(self, func: Callable[..., None], *args: Any) -> None:
         """Запланировать вызов в event loop из потока транспорта."""
@@ -650,8 +760,14 @@ class ZotaCoordinator(DataUpdateCoordinator[ZotaState]):
         """Тик опроса: запросить info-блок, если модуль подключён."""
         try:
             if self._transport is not None and self._transport.is_connected:
-                self._transport.send_frame(
-                    LINK_FLAT, OPCODE_COMMAND, build_read(CMD_INFO)[HEADER_SIZE:]
+                # Ретраи записи не должны блокировать event loop — отправка
+                # уходит в executor пула по умолчанию (результат не ждём).
+                self.hass.loop.run_in_executor(
+                    None,
+                    self._transport.send_frame,
+                    LINK_FLAT,
+                    OPCODE_COMMAND,
+                    build_read(CMD_INFO)[HEADER_SIZE:],
                 )
         finally:
             self._schedule_poll()

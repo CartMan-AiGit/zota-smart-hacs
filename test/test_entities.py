@@ -74,9 +74,10 @@ class EntityDescription:
     """Минимальная замена EntityDescription."""
 
     def __init__(self, key, name=None, device_class=None, state_class=None,
-                 native_unit_of_measurement=None, icon=None):
+                 native_unit_of_measurement=None, icon=None, translation_key=None):
         self.key = key
         self.name = name
+        self.translation_key = translation_key
         self.device_class = device_class
         self.state_class = state_class
         self.native_unit_of_measurement = native_unit_of_measurement
@@ -622,13 +623,14 @@ def case_sensor_meta() -> None:
         by_key["power_active_kw"].native_unit_of_measurement == "kW",
         "мощность (текущая): единицы",
     )
+    # Имена сущностей — через translations (translation_key), см. ru.json.
     check(
-        by_key["power_active_kw"].name == "Мощность: текущая",
-        f"имя текущей: {by_key['power_active_kw'].name!r}",
+        by_key["power_active_kw"].translation_key == "power_active_kw",
+        f"tkey текущей: {by_key['power_active_kw'].translation_key!r}",
     )
     check(
-        by_key["power_kw"].name == "Мощность: уставка",
-        f"имя уставки: {by_key['power_kw'].name!r}",
+        by_key["power_kw"].translation_key == "power_kw",
+        f"tkey уставки: {by_key['power_kw'].translation_key!r}",
     )
     for key, description in by_key.items():
         print(f"  {key:12s} class={description.device_class} unit={description.native_unit_of_measurement}")

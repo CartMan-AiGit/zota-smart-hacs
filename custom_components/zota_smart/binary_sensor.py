@@ -43,18 +43,18 @@ async def async_setup_entry(
 BINARY_SENSOR_DESCRIPTIONS: tuple[BinarySensorEntityDescription, ...] = (
     BinarySensorEntityDescription(
         key="heating",
-        name="Нагрев",
+        translation_key="heating",
         device_class=BinarySensorDeviceClass.RUNNING,
     ),
     BinarySensorEntityDescription(
         key="pump1",
-        name="Насос 1",
+        translation_key="pump1",
         device_class=BinarySensorDeviceClass.RUNNING,
         icon="mdi:pump",
     ),
     BinarySensorEntityDescription(
         key="pump2",
-        name="Насос 2",
+        translation_key="pump2",
         device_class=BinarySensorDeviceClass.RUNNING,
         icon="mdi:pump",
     ),

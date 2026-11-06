@@ -1,10 +1,11 @@
 {
   "domain": "zota_smart",
   "name": "ZOTA Smart",
-  "codeowners": [],
+  "codeowners": ["CartMan-AiGit"],
   "config_flow": true,
   "documentation": "https://github.com/CartMan-AiGit/zota-smart-hacs",
-  "iot_class": "local_push",
+  "homeassistant": ["2024.1.0"],
+  "iot_class": "local_polling",
   "issue_tracker": "https://github.com/CartMan-AiGit/zota-smart-hacs/issues",
   "requirements": [],
   "version": "0.1.0"
