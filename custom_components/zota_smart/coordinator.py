@@ -54,11 +54,13 @@ from .const import (
     CONF_POWER_KW,
     CONF_PROXY,
     CONF_PSK,
+    CONF_TEMP_SENSOR,
     DEFAULT_CLOUD_ADDRESS,
     DEFAULT_NAME,
     DEFAULT_PORT,
     DEFAULT_POWER_KW,
     DEFAULT_PSK,
+    DEFAULT_TEMP_SENSOR,
     DEVICE_IDENTIFIER,
     DOMAIN,
     HEADER_SIZE,
@@ -164,6 +166,9 @@ class ZotaCoordinator(DataUpdateCoordinator[ZotaState]):
         self.psk_hex: str = conf.get(CONF_PSK) or DEFAULT_PSK
         #: Мощность котла, кВт — определяет пресеты климат-сущности.
         self.power_kw: int = conf.get(CONF_POWER_KW, DEFAULT_POWER_KW)
+        #: Источник текущей температуры climate-сущности (supply/return/room/
+        #: outside). Дефолт supply — поведение существующих записей не меняется.
+        self.temp_sensor: str = conf.get(CONF_TEMP_SENSOR, DEFAULT_TEMP_SENSOR)
 
         self._transport = transport
         self._bridge: ZotaCloudBridge | None = None

@@ -224,6 +224,21 @@ CONF_PSK: Final = "psk"
 CONF_POWER_KW: Final = "power_kw"
 CONF_SERIAL: Final = "serial"
 CONF_DEVICE_PASSWORD: Final = "device_password"
+CONF_TEMP_SENSOR: Final = "temp_sensor"
+
+# --- Источник текущей температуры climate-сущности --------------------------
+
+#: Вариант «Подача» — датчик 3 «вода», слот ``[21..22]`` (как исторически).
+TEMP_SENSOR_SUPPLY: Final = "supply"
+#: Вариант «Встроенный датчик (колба)» — поле ``[15..16]``: родной датчик
+#: в колбе котла (бывшая provisional-метка «обратка» снята, f21).
+TEMP_SENSOR_RETURN: Final = "return"
+#: Вариант «Датчик 1: помещение» — слот ``[17..18]``; 0x4001 → None.
+TEMP_SENSOR_ROOM: Final = "room"
+#: Вариант «Датчик 2: улица» — слот ``[19..20]``; 0x4001 → None.
+TEMP_SENSOR_OUTSIDE: Final = "outside"
+#: Дефолт при отсутствии поля в entry — подача (поведение не меняется).
+DEFAULT_TEMP_SENSOR: Final = TEMP_SENSOR_SUPPLY
 
 
 def mask_psk(psk: str) -> str:

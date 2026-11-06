@@ -36,6 +36,9 @@ from .const import (
     DOMAIN,
     SETPOINT_MAX,
     SETPOINT_MIN,
+    TEMP_SENSOR_OUTSIDE,
+    TEMP_SENSOR_RETURN,
+    TEMP_SENSOR_ROOM,
     build_stage_presets,
 )
 from .coordinator import ZotaConfigEntry, ZotaCoordinator
@@ -96,11 +99,25 @@ class ZotaClimate(ZotaEntity, ClimateEntity):
 
     @property
     def current_temperature(self) -> float | None:
-        """Температура подачи, °C."""
+        """Текущая температура по выбранному в настройках датчику, °C.
+
+        Источник — настройка записи ``temp_sensor`` (координатор): подача
+        (дефолт, датчик 3), встроенный датчик колбы (``[15..16]``), датчик
+        помещения или улицы. Если
+        выбранный внешний датчик не подключён (слот 0x4001 → ``None``),
+        климат честно показывает «нет данных».
+        """
         state = self._state
         if state is None:
             return None
-        return state.temp_supply
+        source = self.coordinator.temp_sensor
+        if source == TEMP_SENSOR_RETURN:
+            return float(state.temp_return)
+        if source == TEMP_SENSOR_ROOM:
+            return state.sensor_room
+        if source == TEMP_SENSOR_OUTSIDE:
+            return state.sensor_outside
+        return float(state.temp_supply)
 
     @property
     def target_temperature(self) -> float | None:

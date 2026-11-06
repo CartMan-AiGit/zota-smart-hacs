@@ -384,7 +384,7 @@ def case_sensor_values() -> None:
         value = entity.native_value
         print(f"  {key:16s} = {value!r}")
     check(build_sensor(coordinator, "temp_supply").native_value == 21, "подача: ожидалось 21")
-    check(build_sensor(coordinator, "temp_return").native_value == 20, "обратка: ожидалось 20")
+    check(build_sensor(coordinator, "temp_return").native_value == 20, "колба: ожидалось 20")
     check(build_sensor(coordinator, "setpoint").native_value == 61, "уставка: ожидалось 61")
     check(build_sensor(coordinator, "stage").native_value == "5 кВт", "ступень: ожидалось «5 кВт»")
     check(
@@ -610,7 +610,7 @@ def case_sensor_meta() -> None:
     by_key = {d.key: d for d in sensor.SENSOR_DESCRIPTIONS}
     check(by_key["temp_supply"].device_class == "temperature", "подача: device_class")
     check(by_key["temp_supply"].native_unit_of_measurement == "°C", "подача: единицы")
-    check(by_key["temp_return"].device_class == "temperature", "обратка: device_class")
+    check(by_key["temp_return"].device_class == "temperature", "колба: device_class")
     check(by_key["setpoint"].device_class == "temperature", "уставка: device_class")
     check(by_key["power_kw"].device_class == "power", "мощность (уставка): device_class")
     check(by_key["power_kw"].native_unit_of_measurement == "kW", "мощность (уставка): единицы")

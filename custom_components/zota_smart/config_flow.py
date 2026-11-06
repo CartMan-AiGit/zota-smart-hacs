@@ -16,6 +16,11 @@ from homeassistant.config_entries import (
     OptionsFlow,
 )
 from homeassistant.core import callback
+from homeassistant.helpers.selector import (
+    SelectOptionDict,
+    SelectSelector,
+    SelectSelectorConfig,
+)
 
 from .const import (
     CONF_CLOUD_ADDRESS,
@@ -26,16 +31,22 @@ from .const import (
     CONF_PROXY,
     CONF_PSK,
     CONF_SERIAL,
+    CONF_TEMP_SENSOR,
     DEFAULT_CLOUD_ADDRESS,
     DEFAULT_NAME,
     DEFAULT_PORT,
     DEFAULT_POWER_KW,
     DEFAULT_PSK,
     DEFAULT_PROXY,
+    DEFAULT_TEMP_SENSOR,
     DOMAIN,
     POWER_KW_MAX,
     POWER_KW_MIN,
     POWER_KW_STEP,
+    TEMP_SENSOR_OUTSIDE,
+    TEMP_SENSOR_RETURN,
+    TEMP_SENSOR_ROOM,
+    TEMP_SENSOR_SUPPLY,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -93,6 +104,31 @@ def _schema(current: dict[str, Any]) -> vol.Schema:
                 CONF_POWER_KW,
                 default=current.get(CONF_POWER_KW, DEFAULT_POWER_KW),
             ): int,
+            vol.Required(
+                CONF_TEMP_SENSOR,
+                default=current.get(CONF_TEMP_SENSOR, DEFAULT_TEMP_SENSOR),
+            ): SelectSelector(
+                SelectSelectorConfig(
+                    options=[
+                        SelectOptionDict(
+                            value=TEMP_SENSOR_SUPPLY, label="Подача (датчик 3)"
+                        ),
+                        # значение ключа "return" не меняется (историческое),
+                        # меняется только подпись: [15..16] — родной датчик в колбе
+                        SelectOptionDict(
+                            value=TEMP_SENSOR_RETURN,
+                            label="Встроенный датчик (колба)",
+                        ),
+                        SelectOptionDict(
+                            value=TEMP_SENSOR_ROOM, label="Датчик 1: помещение"
+                        ),
+                        SelectOptionDict(
+                            value=TEMP_SENSOR_OUTSIDE, label="Датчик 2: улица"
+                        ),
+                    ],
+                    mode="dropdown",
+                )
+            ),
             vol.Optional(CONF_SERIAL, description="серийник модуля"): int,
             vol.Optional(CONF_DEVICE_PASSWORD): str,
         }

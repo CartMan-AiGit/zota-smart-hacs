@@ -104,6 +104,8 @@ def make_info(
     pump1=1,
     mask=0x11,
     diag=180,
+    sensor_room=25,
+    sensor_outside=7,
 ) -> bytes:
     """Собрать info-блок (53 байта) с заданными полями.
 
@@ -125,6 +127,13 @@ def make_info(
     info[5] = setpoint
     info[15] = t_return
     info[21] = t_supply
+    #: Слоты внешних датчиков u16 LE (``None`` → маркер «не подключён»).
+    import struct as _struct
+
+    info[17:19] = _struct.pack("<H", 0x4001 if sensor_room is None else int(sensor_room))
+    info[19:21] = _struct.pack(
+        "<H", 0x4001 if sensor_outside is None else int(sensor_outside)
+    )
     info[29] = pump1
     info[37] = mask
     info[46] = diag
@@ -411,6 +420,63 @@ async def case_config_psk_power() -> None:
     print("  case 11: OK\n")
 
 
+async def case_temp_sensor_source() -> None:
+    """Источник current_temperature — настройка temp_sensor записи.
+
+    Дефолт (поле отсутствует) — подача, поведение не меняется; ``room`` —
+    слот [17..18]; неподключённый датчик (0x4001) → None.
+    """
+    # Дефолт: поле в entry отсутствует → подача.
+    transport = FakeTransport()
+    coordinator = make_coordinator(transport)  # без temp_sensor в entry
+    set_state(coordinator, t_supply=21, sensor_room=25)
+    climate = make_climate(coordinator)
+    print(
+        f"--- case 17: источник температуры ---\n"
+        f"  default  = {climate.current_temperature}"
+    )
+    check(climate.current_temperature == 21, "дефолт должен быть подача (21)")
+
+    # room → слот [17..18].
+    transport2 = FakeTransport()
+    coordinator2 = make_coordinator(
+        transport2, {"name": "Котёл", "port": 1978, "temp_sensor": "room"}
+    )
+    set_state(coordinator2, t_supply=21, sensor_room=25)
+    climate2 = make_climate(coordinator2)
+    print(f"  room     = {climate2.current_temperature}")
+    check(climate2.current_temperature == 25, "room должен читать [17..18] (25)")
+
+    # return → поле [15].
+    transport3 = FakeTransport()
+    coordinator3 = make_coordinator(
+        transport3, {"name": "Котёл", "port": 1978, "temp_sensor": "return"}
+    )
+    set_state(coordinator3, t_return=33)
+    climate3 = make_climate(coordinator3)
+    check(climate3.current_temperature == 33, "return должен читать [15] (33)")
+
+    # outside → слот [19..20].
+    transport4 = FakeTransport()
+    coordinator4 = make_coordinator(
+        transport4, {"name": "Котёл", "port": 1978, "temp_sensor": "outside"}
+    )
+    set_state(coordinator4, sensor_outside=7)
+    climate4 = make_climate(coordinator4)
+    check(climate4.current_temperature == 7, "outside должен читать [19..20] (7)")
+
+    # Датчик не подключён (0x4001) → None, climate показывает «нет данных».
+    transport5 = FakeTransport()
+    coordinator5 = make_coordinator(
+        transport5, {"name": "Котёл", "port": 1978, "temp_sensor": "room"}
+    )
+    set_state(coordinator5, sensor_room=None)
+    climate5 = make_climate(coordinator5)
+    print(f"  absent   = {climate5.current_temperature}")
+    check(climate5.current_temperature is None, "0x4001 → None")
+    print("  case 17: OK\n")
+
+
 # --- Прочее ------------------------------------------------------------------
 
 
@@ -448,6 +514,7 @@ def main() -> int:
         await case_climate_poll_now()
         await case_climate_power_18()
         await case_config_psk_power()
+        await case_temp_sensor_source()
 
     asyncio.run(run_all())
     case_manifest()
